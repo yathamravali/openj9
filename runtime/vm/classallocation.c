@@ -376,8 +376,19 @@ freeClassLoader(J9ClassLoader *classLoader, J9JavaVM *javaVM, J9VMThread *vmThre
 		RELEASE_CLASS_LOADER_BLOCKS_MUTEX(javaVM);
 	}
 
-	if (classLoader->jniIDs != NULL) {
-		pool_kill(classLoader->jniIDs);
+	if (NULL != classLoader->jniIDs) {
+		if (J9_ARE_ANY_BITS_SET(javaVM->extendedRuntimeFlags2, J9_EXTENDED_RUNTIME2_KEEP_JNI_IDS)) {
+			pool_state idWalkState;
+			J9GenericJNIID *jniID = pool_startDo(classLoader->jniIDs, &idWalkState);
+
+			while (NULL != jniID) {
+				memset(jniID, -1, sizeof(J9GenericJNIID));
+				jniID = pool_nextDo(&idWalkState);
+			}
+		} else {
+			pool_kill(classLoader->jniIDs);
+		}
+		classLoader->jniIDs = NULL;
 	}
 
 	if (NULL != classLoader->classHashTable) {
